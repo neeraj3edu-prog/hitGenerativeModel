@@ -5,7 +5,9 @@ import streamlit as st
 # Simple authentication
 def check_password():
     def password_entered():
-        if st.session_state["password"] == st.secrets["app_password"]:
+        # Safely get the password from session_state to avoid KeyError
+        entered_password = st.session_state.get("password", "")
+        if entered_password == st.secrets["app_password"]:
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:

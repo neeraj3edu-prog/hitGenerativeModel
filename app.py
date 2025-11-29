@@ -17,6 +17,8 @@ import matplotlib.cm as cm
 import matplotlib.colors as colors
 from datetime import datetime
 import numpy as np
+import requests
+import streamlit.components.v1 as components
 
 from funcs.stauth import check_password
 from funcs.app_funcs import (load_backend_docs,
@@ -1086,163 +1088,409 @@ else:  # Browse Experiments page
                                 title=color_column
                             )
                         )
-
-                        # Display the plot
+                        
+                        # Display the scatter plot
                         st.plotly_chart(fig, use_container_width=True)
                     
-                    # Download button for full results
-                    results_path = os.path.join("output", selected_experiment, "results", "metrics.csv")
-                    if os.path.exists(results_path):
-                        with open(results_path, "rb") as file:
-                            st.download_button(
-                                label="Download Full Results CSV",
-                                data=file,
-                                file_name=f"{selected_experiment}_results.csv",
-                                mime="text/csv"
-                            )
+                    # Retro Synthesis Section
+                    st.markdown("#### 🧪 Retro Synthesis Generator")
+                    st.markdown("Select a molecule from the table above to generate its retro synthesis pathway.")
                     
-                    # Show molecule visualization
-                    if 'SMILES' in results.columns and len(results) > 0:
-                        selected_index = st.selectbox(
-                            "Select molecule to view:",
-                            options=range(len(results)),
-                            format_func=lambda i: f"Molecule {i+1}"
-                        )
+                    with st.container(border=True):
+                        # Molecule selection
+                        col1, col2 = st.columns([2, 1])
                         
-                        selected_smiles = results['SMILES'].iloc[selected_index]
-                        st.code(selected_smiles, language=None)
+                        with col1:
+                            # Create a list of molecules with their index and SMILES
+                            molecule_options = [f"Molecule #{idx}: {row['SMILES'][:50]}..." if len(row['SMILES']) > 50 else f"Molecule #{idx}: {row['SMILES']}" 
+                                              for idx, row in results.iterrows()]
+                            
+                            selected_molecule_idx = st.selectbox(
+                                "Select Molecule",
+                                options=range(len(molecule_options)),
+                                format_func=lambda x: molecule_options[x],
+                                help="Choose a molecule to generate retro synthesis"
+                            )
                         
-                        # Show "View Structure" button
-                        if st.button("View Structure", key="view_structure"):
-                            # Check if rdkit is available
-                            try:
-                                from rdkit import Chem
-                                from rdkit.Chem import Draw
-                                
-                                mol = Chem.MolFromSmiles(selected_smiles)
-                                if mol:
-                                    # Generate the image
-                                    img = Draw.MolToImage(mol, size=(1260, 400))
-                                    
-                                    # Display the image
-                                    st.image(img, caption="Molecular Structure")
-                                    
-                                    # Add some basic molecular properties
-                                    st.markdown("#### Properties")
-                                    from rdkit.Chem import Descriptors, Lipinski
-
-                                    props = {
-                                        "Molecular Weight": round(Descriptors.MolWt(mol), 2),
-                                        "LogP": round(Descriptors.MolLogP(mol), 2),
-                                        "H-Bond Donors": Lipinski.NumHDonors(mol),
-                                        "H-Bond Acceptors": Lipinski.NumHAcceptors(mol),
-                                        "Rotatable Bonds": Descriptors.NumRotatableBonds(mol)
+                        with col2:
+                            beam_size = st.number_input(
+                                "Beam Size",
+                                min_value=1,
+                                max_value=10,
+                                value=3,
+                                help="Number of synthesis routes to generate"
+                            )
+                        
+                        # Get the selected SMILES
+                        selected_smiles = results.iloc[selected_molecule_idx]['SMILES']
+                        
+                        # Display selected molecule info
+                        st.info(f"**Selected SMILES:** `{selected_smiles}`")
+                        
+                        # Generate retro synthesis button
+                        if st.button("🔬 Generate Retro Synthesis", type="primary"):
+                            with st.spinner("Generating retro synthesis pathways..."):
+                                try:
+                                    # Make API call
+                                    api_url = "http://136.117.112.142:8000/predict"
+                                    payload = {
+                                        "smiles": selected_smiles,
+                                        "beam_size": beam_size
                                     }
                                     
-                                    prop_cols = st.columns(3)
+                                    response = requests.post(
+                                        api_url,
+                                        headers={"Content-Type": "application/json"},
+                                        json=payload,
+                                        timeout=30
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        result = response.json()
+                                        # Store in session state
+                                        st.session_state['retro_result'] = result
+                                        st.session_state['retro_smiles'] = selected_smiles
+                                        
+                                    else:
+                                        st.error(f"❌ API Error: {response.status_code}")
+                                        st.write(response.text)
+                                        
+                                except requests.exceptions.Timeout:
+                                    st.error("⏱️ Request timed out. Please try again.")
+                                except requests.exceptions.ConnectionError:
+                                    st.error("🔌 Connection error. Please check if the API service is running.")
+                                except Exception as e:
+                                    st.error(f"❌ Error: {str(e)}")
+                        
+                        # Display retro synthesis results if available
+                        if 'retro_result' in st.session_state:
+                            result = st.session_state['retro_result']
+                            st.success("✅ Retro synthesis generated successfully!")
+                            
+                            # Display results - only predictions and num_predictions
+                            num_predictions = result.get("num_predictions", 0)
+                            predictions = result.get("predictions", [])
+                            
+                            st.markdown(f"#### {num_predictions} Synthesis Pathways")
+                            
+                            # Display each prediction
+                            for i, pathway in enumerate(predictions, 1):
+                                st.markdown(f"**Pathway {i}:**")
+                                st.code(pathway, language="text")
+                    
+                    # Boltz Protein-Ligand Binding Section
+                    st.markdown("#### 🧬 Boltz Protein-Ligand Binding Analysis")
+                    st.markdown("Analyze protein-ligand binding affinity and confidence scores for selected molecules.")
+                    
+                    with st.container(border=True):
+                        # Molecule selection for Boltz
+                        # Create a list of molecules with their index and SMILES
+                        boltz_molecule_options = [f"Molecule #{idx}: {row['SMILES'][:50]}..." if len(row['SMILES']) > 50 else f"Molecule #{idx}: {row['SMILES']}" 
+                                          for idx, row in results.iterrows()]
+                        
+                        selected_boltz_idx = st.selectbox(
+                            "Select Molecule for Binding Analysis",
+                            options=range(len(boltz_molecule_options)),
+                            format_func=lambda x: boltz_molecule_options[x],
+                            help="Choose a molecule to analyze protein-ligand binding",
+                            key="boltz_molecule_select"
+                        )
+                        
+                        # Get the selected SMILES
+                        selected_boltz_smiles = results.iloc[selected_boltz_idx]['SMILES']
+                        
+                        # Display selected molecule info
+                        st.info(f"**Selected SMILES:** `{selected_boltz_smiles}`")
+                        
+                        # Analyze binding button
+                        if st.button("🧬 Analyze Protein-Ligand Binding", type="primary", key="boltz_analyze"):
+                            with st.spinner("Analyzing protein-ligand binding... This may take a few moments."):
+                                try:
+                                    # Make API call
+                                    boltz_api_url = "http://35.188.254.55:8001/protein-ligand-binding-sync"
+                                    boltz_payload = {
+                                        "ligand_smiles": selected_boltz_smiles
+                                    }
+                                    
+                                    response = requests.post(
+                                        boltz_api_url,
+                                        headers={"Content-Type": "application/json"},
+                                        json=boltz_payload,
+                                        timeout=900  # 15 minutes timeout for longer processing
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        result = response.json()
+                                        # Store in session state
+                                        st.session_state['boltz_result'] = result
+                                        st.session_state['boltz_smiles'] = selected_boltz_smiles
+                                        
+                                    else:
+                                        st.error(f"❌ API Error: {response.status_code}")
+                                        st.write(response.text)
+                                        
+                                except requests.exceptions.Timeout:
+                                    st.error("⏱️ Request timed out. The analysis may take longer than expected. Please try again.")
+                                except requests.exceptions.ConnectionError:
+                                    st.error("🔌 Connection error. Please check if the Boltz API service is running.")
+                                except Exception as e:
+                                    st.error(f"❌ Error: {str(e)}")
+                        
+                        # Display Boltz results if available
+                        if 'boltz_result' in st.session_state:
+                            result = st.session_state['boltz_result']
+                            
+                            st.success("✅ Binding analysis completed successfully!")
+                            
+                            # Display Summary Section
+                            if "summary" in result:
+                                summary = result["summary"]
+                                
+                                st.markdown("### 📊 Summary")
+                                
+                                # Create columns for summary metrics
+                                sum_col1, sum_col2, sum_col3 = st.columns(3)
+                                
+                                with sum_col1:
+                                    st.metric(
+                                        "Binding Classification",
+                                        summary.get("binding_classification", "N/A")
+                                    )
+                                    st.metric(
+                                        "Consistency",
+                                        summary.get("consistency", "N/A")
+                                    )
+                                
+                                with sum_col2:
+                                    ic50_data = summary.get("ic50_nM", {})
+                                    st.metric(
+                                        "Mean IC50 (nM)",
+                                        f"{ic50_data.get('mean', 0):.2f}",
+                                        help="Lower values indicate stronger binding"
+                                    )
+                                    st.metric(
+                                        "IC50 Std Dev",
+                                        f"{ic50_data.get('std', 0):.2f}"
+                                    )
+                                
+                                with sum_col3:
+                                    conf_data = summary.get("confidence_score", {})
+                                    st.metric(
+                                        "Mean Confidence",
+                                        f"{conf_data.get('mean', 0):.4f}",
+                                        help="Higher values indicate more reliable predictions"
+                                    )
+                                    st.metric(
+                                        "CV%",
+                                        f"{ic50_data.get('cv_percent', 0):.2f}%",
+                                        help="Coefficient of variation - lower is better"
+                                    )
+                            
+                            # Display Individual Results
+                            if "results" in result and len(result["results"]) > 0:
+                                st.markdown("### 🔬 Individual Job Results")
+                                
+                                for idx, job_result in enumerate(result["results"], 1):
+                                    with st.expander(f"**{job_result.get('job_name', 'Job')}** - {job_result.get('status', 'unknown').upper()}", expanded=(idx == 1)):
+                                        
+                                        # Confidence Scores - Tabular Format
+                                        st.markdown("#### Confidence Scores")
+                                        conf_scores = job_result.get("confidence_scores", {})
+                                        
+                                        conf_df = pd.DataFrame([
+                                            {
+                                                "Confidence": f"{conf_scores.get('confidence_score', 0):.4f}",
+                                                "PTM": f"{conf_scores.get('ptm', 0):.4f}",
+                                                "iPTM": f"{conf_scores.get('iptm', 0):.4f}",
+                                                "pLDDT": f"{conf_scores.get('plddt', 0):.4f}"
+                                            }
+                                        ])
+                                        st.dataframe(conf_df, use_container_width=True, hide_index=True)
+                                        
+                                        # Affinity Scores - Tabular Format
+                                        st.markdown("#### Affinity Scores")
+                                        aff_scores = job_result.get("affinity_scores", {})
+                                        
+                                        aff_df = pd.DataFrame([
+                                            {
+                                                "IC50 (nM)": f"{aff_scores.get('ic50_nM', 0):.2f}",
+                                                "pIC50": f"{aff_scores.get('pic50', 0):.4f}",
+                                                "Kd (nM)": f"{aff_scores.get('kd_nM', 0):.2f}",
+                                                "pKd": f"{aff_scores.get('pkd', 0):.4f}",
+                                                "ΔG (kcal/mol)": f"{aff_scores.get('delta_g_kcal', 0):.4f}",
+                                                "Boltz Affinity": f"{aff_scores.get('boltz_affinity_value', 0):.4f}",
+                                                "Affinity Prob": f"{aff_scores.get('affinity_prob', 0):.4f}"
+                                            }
+                                        ])
+                                        st.dataframe(aff_df, use_container_width=True, hide_index=True)
+                                        
+                                        # Structure Files with 3D Viewer
+                                        if "structure_files" in job_result and job_result["structure_files"]:
+                                            st.markdown("#### 🔬 3D Structure Visualization")
+                                            
+                                            for file_idx, file_path in enumerate(job_result["structure_files"]):
+                                                job_id = job_result.get('job_id', '')
+                                                download_url = f"http://35.188.254.55:8001/jobs/{job_id}/download/{file_path}"
+                                                
+                                                # Add 3D viewer
+                                                st.markdown(f"**Interactive 3D Viewer - Structure {file_idx + 1}**")
+                                                
+                                                # Create 3D viewer using NGL Viewer (web-based)
+                                                viewer_html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/ngl@2.0.0-dev.37/dist/ngl.js"></script>
+                                                                <style>
+                                                                    #viewport {{
+                                                                        width: 100%;
+                                                                        height: 600px;
+                                                                        position: relative;
+                                                                    }}
+                                                                    .controls {{
+                                                                        position: absolute;
+                                                                        top: 10px;
+                                                                        right: 10px;
+                                                                        z-index: 10;
+                                                                        background: rgba(255, 255, 255, 0.9);
+                                                                        padding: 10px;
+                                                                        border-radius: 5px;
+                                                                        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                                                    }}
+                                                                    .controls button {{
+                                                                        margin: 5px;
+                                                                        padding: 8px 12px;
+                                                                        border: none;
+                                                                        border-radius: 3px;
+                                                                        background: #4CAF50;
+                                                                        color: white;
+                                                                        cursor: pointer;
+                                                                        font-size: 12px;
+                                                                    }}
+                                                                    .controls button:hover {{
+                                                                        background: #45a049;
+                                                                    }}
+                                                                    .loading {{
+                                                                        position: absolute;
+                                                                        top: 50%;
+                                                                        left: 50%;
+                                                                        transform: translate(-50%, -50%);
+                                                                        font-size: 18px;
+                                                                        color: #666;
+                                                                    }}
+                                                                </style>
+                                                            </head>
+                                                            <body>
+                                                                <div id="viewport">
+                                                                    <div class="loading">Loading 3D structure...</div>
+                                                                </div>
+                                                                <div class="controls">
+                                                                    <button onclick="resetView()">Reset View</button>
+                                                                    <button onclick="toggleSpin()">Toggle Spin</button>
+                                                                    <button onclick="changeRepresentation('cartoon')">Cartoon</button>
+                                                                    <button onclick="changeRepresentation('ball+stick')">Ball & Stick</button>
+                                                                    <button onclick="changeRepresentation('surface')">Surface</button>
+                                                                </div>
+                                                                
+                                                                <script>
+                                                                    var stage = new NGL.Stage("viewport", {{
+                                                                        backgroundColor: "white"
+                                                                    }});
+                                                                    
+                                                                    var component;
+                                                                    var spinning = false;
+                                                                    
+                                                                    // Load structure from URL
+                                                                    stage.loadFile("{download_url}", {{ext: "cif"}}).then(function(comp) {{
+                                                                        component = comp;
+                                                                        
+                                                                        // Add default representation
+                                                                        component.addRepresentation("cartoon", {{
+                                                                            color: "chainid"
+                                                                        }});
+                                                                        
+                                                                        // Add ligand representation
+                                                                        component.addRepresentation("ball+stick", {{
+                                                                            sele: "hetero",
+                                                                            color: "element"
+                                                                        }});
+                                                                        
+                                                                        // Center and zoom
+                                                                        component.autoView();
+                                                                        
+                                                                        // Remove loading message
+                                                                        document.querySelector('.loading').style.display = 'none';
+                                                                    }}).catch(function(error) {{
+                                                                        console.error("Error loading structure:", error);
+                                                                        document.querySelector('.loading').innerHTML = 
+                                                                            "Error loading structure. Please download the file to view locally.";
+                                                                    }});
+                                                                    
+                                                                    // Handle window resize
+                                                                    window.addEventListener("resize", function() {{
+                                                                        stage.handleResize();
+                                                                    }});
+                                                                    
+                                                                    // Control functions
+                                                                    function resetView() {{
+                                                                        if (component) {{
+                                                                            component.autoView();
+                                                                        }}
+                                                                    }}
+                                                                    
+                                                                    function toggleSpin() {{
+                                                                        spinning = !spinning;
+                                                                        stage.setSpin(spinning);
+                                                                    }}
+                                                                    
+                                                                    function changeRepresentation(repr) {{
+                                                                        if (component) {{
+                                                                            component.removeAllRepresentations();
+                                                                            
+                                                                            if (repr === "cartoon") {{
+                                                                                component.addRepresentation("cartoon", {{
+                                                                                    color: "chainid"
+                                                                                }});
+                                                                                component.addRepresentation("ball+stick", {{
+                                                                                    sele: "hetero",
+                                                                                    color: "element"
+                                                                                }});
+                                                                            }} else if (repr === "ball+stick") {{
+                                                                                component.addRepresentation("ball+stick", {{
+                                                                                    color: "element"
+                                                                                }});
+                                                                            }} else if (repr === "surface") {{
+                                                                                component.addRepresentation("surface", {{
+                                                                                    color: "chainid",
+                                                                                    opacity: 0.7
+                                                                                }});
+                                                                                component.addRepresentation("ball+stick", {{
+                                                                                    sele: "hetero",
+                                                                                    color: "element"
+                                                                                }});
+                                                                            }}
+                                                                            
+                                                                            component.autoView();
+                                                                        }}
+                                                                    }}
+                                                                </script>
+                                                            </body>
+                                                            </html>
+                                                            """
+                                                
+                                                # Display the 3D viewer
+                                                components.html(viewer_html, height=650, scrolling=False)
+                                                
+                                                st.markdown("---")
+                                            
+                                            st.info("💡 **Tip:** Use your mouse to rotate (left-click drag), zoom (scroll), and pan (right-click drag) the structure. Try different representations using the buttons!")
 
-                                    # Display each property as a placard
-                                    for idx, (name, value) in enumerate(props.items()):
-                                        col_idx = idx % 3
-                                        with prop_cols[col_idx]:
-                                            st.markdown(f"""
-                                            <div style="
-                                                background-color: #f0f2f6;
-                                                border-radius: 10px;
-                                                padding: 15px;
-                                                margin-bottom: 10px;
-                                                box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-                                            ">
-                                                <p style="font-size: 16px; color: #0e1117; margin-bottom: 5px;"><strong>{name}</strong></p>
-                                                <p style="font-size: 14px; color: #4b5563;">{value}</p>
-                                            </div>
-                                            """, unsafe_allow_html=True)
-                                    
-                                    # Add download buttons
-                                    download_col1, download_col2 = st.columns(2)
-                                    import io
-                                    from PIL import Image
-                                    import base64
-                                    from reportlab.lib.pagesizes import letter
-                                    from reportlab.pdfgen import canvas
-                                    from reportlab.lib.utils import ImageReader
-                                    
-                                    # Function to create PNG
-                                    def get_png_download():
-                                        buf = io.BytesIO()
-                                        img.save(buf, format='PNG')
-                                        byte_im = buf.getvalue()
-                                        return byte_im
-                                    
-                                    # Function to create PDF with structure and properties
-                                    def get_pdf_download():
-                                        buffer = io.BytesIO()
-                                        c = canvas.Canvas(buffer, pagesize=letter)
-                                        width, height = letter
-                                        
-                                        # Add title
-                                        c.setFont("Helvetica-Bold", 16)
-                                        c.drawString(72, height - 72, f"Molecule: {selected_index + 1}")
-                                        
-                                        # Add SMILES
-                                        c.setFont("Helvetica", 10)
-                                        c.drawString(72, height - 100, "SMILES:")
-                                        c.drawString(72, height - 115, selected_smiles)
-                                        
-                                        # Add the molecule image
-                                        img_buf = io.BytesIO()
-                                        img.save(img_buf, format='PNG')
-                                        img_buf.seek(0)
-                                        img_reader = ImageReader(img_buf)
-                                        c.drawImage(img_reader, 72, height - 400, width=450, height=250, preserveAspectRatio=True)
-                                        
-                                        # Add properties
-                                        c.setFont("Helvetica-Bold", 14)
-                                        c.drawString(72, height - 420, "Properties:")
-                                        
-                                        c.setFont("Helvetica", 12)
-                                        y_pos = height - 450
-                                        for name, value in props.items():
-                                            c.drawString(72, y_pos, f"{name}: {value}")
-                                            y_pos -= 20
-                                        
-                                        c.save()
-                                        buffer.seek(0)
-                                        return buffer
-                                    
-                                    # Add PNG download button
-                                    with download_col1:
-                                        st.download_button(
-                                            label="Download PNG",
-                                            data=get_png_download(),
-                                            file_name=f"molecule_{selected_index + 1}.png",
-                                            mime="image/png"
-                                        )
-                                    
-                                    # Add PDF download button
-                                    with download_col2:
-                                        st.download_button(
-                                            label="Download PDF Report",
-                                            data=get_pdf_download(),
-                                            file_name=f"molecule_{selected_index + 1}_report.pdf",
-                                            mime="application/pdf"
-                                        )
-                                else:
-                                    st.error("Could not generate molecular structure. Invalid SMILES string.")
-                            except ImportError:
-                                st.error("RDKit is required to display molecular structures. Please install it with `pip install rdkit`.")
-                else:
-                    st.warning("No generated molecules results found.")
-            
-            # Tab 2: Beam Search Molecules section (now only showing Tanimoto Similarity Analysis)
-            with molecule_tabs[1]:
-                # Tanimoto Similarity Analysis
-                st.markdown("### Tanimoto Similarity Analysis")
-                st.markdown("""
-                This section visualizes the Tanimoto similarity measures for molecules generated 
-                by the beam search algorithm during different training epochs. Tanimoto similarity 
-                quantifies the structural similarity between generated molecules and reference compounds.
-                """)
+                    # Tanimoto Similarity Section
+                    st.markdown("""
+                    This section visualizes the Tanimoto similarity measures for molecules generated 
+                    by the beam search algorithm during different training epochs. Tanimoto similarity 
+                    quantifies the structural similarity between generated molecules and reference compounds.
+                    """)
                 
                 # Load similarity data using the existing function
                 similarity_data = load_similarity_data(selected_experiment)

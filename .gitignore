@@ -4,6 +4,10 @@ pretrained/c24_augmentationx10_minlen1_maxlen140.h5
 *.h5
 .streamlit/secrets.toml
 
+# Markdown files - ignore all except README.md
+*.md
+!README.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

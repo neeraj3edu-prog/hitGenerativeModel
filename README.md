@@ -3,267 +3,233 @@
 ![IIT Kanpur Logo](resources/iitklogo.png)
 
 ## **Overview**
+
 HGM is a Hierarchical Generative Model designed for molecular generation and optimization using SMILES sequences. This project integrates deep learning techniques for data processing, training, beam search, and sampling, enabling efficient molecular design for drug discovery and materials science applications.
 
-The repository includes both a command-line pipeline and a user-friendly Streamlit application for model configuration, training, and visualization.
+The repository includes:
+- **Command-line pipeline** for batch processing
+- **Streamlit web application** for interactive experiment management
+- **Boltz Protein-Ligand Binding Analysis** for binding affinity prediction
+- **Retro Synthesis Generator** for synthesis pathway generation
+- **Bioactivity Prediction Pipeline** for property prediction
 
-## **Project Structure**
-```
-hgm/
-│── configs/              # Configuration files for model and pipeline settings
-│── input_data/           # Raw input files for training
-│── output_data/          # Generated resultant molecules per experiment
-│── pretrained/           # Pretrained model files (.h5) for transfer learning
-│── funcs/                # Utility functions for data processing and model handling
-│── processes/            # Process abstractions for different pipeline routines
-│── memory/               # Generated interim files, models etc. for experiments
-│── resources/            # UI resources and static files
-│── app.py                # Streamlit application entry point
-│── app_link.py           # Connects the Streamlit app with the backend pipeline
-│── main.py               # Entry point for executing the pipeline via CLI
-│── bpp/                  # Bioactivity prediction pipeline module
-│   │── models/           # Trained machine learning models for property prediction
-│   │── dataset_config.py # Configuration for different prediction datasets
-│   │── feature_engineering.py # Molecular feature extraction and preprocessing
-│   │── predict.py        # Functions for predicting properties of molecules
-│   │── train_models.py   # Scripts for training ML models on bioactivity data
-│   │── training_data/    # Training datasets for bioactivity models
-│   └── transformers.py   # Data transformation utilities
-│── README.md             # Project documentation
-```
+---
 
-## **Backend Architecture & Implementation**
-
-The Streamlit application is powered by a sophisticated backend pipeline that orchestrates several machine learning and cheminformatics processes. Here's a detailed overview of what happens behind the scenes:
-
-### **Core Components**
-
-1. **Hierarchical Generative Model (HGM)**
-   - A multi-level deep learning architecture optimized for SMILES generation
-   - Utilizes LSTM/GRU layers for sequence modeling with attention mechanisms
-   - Trained using teacher forcing with categorical cross-entropy loss
-   - Implements both sampling and beam search for molecule generation
-
-2. **Data Processing Pipeline**
-   - Handles SMILES canonicalization, validation, and filtering
-   - Performs data augmentation by generating multiple valid SMILES for each molecule
-   - Tokenizes SMILES strings and builds vocabulary dictionary
-   - Creates train/validation splits with sequence length constraints
-
-3. **Bioactivity Prediction Pipeline (BPP)**
-   - Ensemble of trained ML models for predicting key properties:
-     - EC50 values for GLP-1R, GCGR, and GIP receptors
-     - Binding affinity (Kd) for target receptors
-   - Uses Morgan fingerprints and other molecular descriptors as features
-   - Implements target transformation for better prediction of skewed distributions
-
-4. **Experiment Management System**
-   - Maintains isolated experiment environments in the memory directory
-   - Tracks experiment status and results through JSON status files
-   - Manages configuration inheritance and parameter overrides
-   - Provides resumability for interrupted experiments
-
-### **Process Flow**
-
-When a user configures and runs an experiment through the Streamlit interface, the backend executes the following sequence:
-
-1. **Configuration Initialization**
-   - Parses and validates user inputs from the Streamlit interface
-   - Creates experiment directory with config.ini file
-   - Sets up logging and monitoring infrastructure
-
-2. **Data Preprocessing**
-   - Reads input SMILES data from specified files
-   - Applies filtering based on min/max length parameters
-   - Generates augmented variants of each molecule
-   - Splits data into training and validation sets
-   - Creates tokenized representations for neural network input
-
-3. **Model Training**
-   - Initializes model architecture based on configuration
-   - Loads pretrained weights if specified
-   - Sets up callbacks for checkpointing, early stopping, and learning rate scheduling
-   - Executes training loop with specified batch size and epochs
-   - Saves model checkpoints and training history
-
-4. **Molecule Generation**
-   - Performs beam search with configured width parameter
-   - Samples molecules using temperature-controlled multinomial sampling
-   - Executes sampling from multiple checkpoints in parallel
-   - Filters generated molecules for validity and uniqueness
-   - Saves generated molecules to experiment directory
-
-5. **Post-Processing & Analysis**
-   - Applies the BPP models to predict properties of generated molecules
-   - Calculates drug-likeness and other physicochemical properties
-   - Filters molecules based on desired property profiles
-   - Generates visualizations and metrics for the Streamlit interface
-   - Creates downloadable reports and molecule files
-
-### **Performance Optimizations**
-
-The backend implements several optimizations to ensure efficient execution:
-
-1. **Multiprocessing for Sampling**
-   - Distributes sampling across CPU cores for faster generation
-   - Implements proper locking mechanisms for thread safety
-
-2. **GPU Acceleration**
-   - Leverages TensorFlow's GPU support for model training and inference
-   - Optimizes batch sizes for GPU memory constraints
-
-3. **Efficient Data Handling**
-   - Uses memory-mapped files for large datasets
-   - Implements generators for on-the-fly data augmentation
-   - Employs efficient numpy operations for data transformations
-
-4. **Caching Mechanisms**
-   - Caches molecular fingerprints and descriptors to avoid redundant calculations
-   - Implements memoization for expensive cheminformatics operations
-
-### **Security Features**
-
-1. **Authentication System**
-   - Password-protected access to the Streamlit interface
-   - Secure credential storage and verification
-
-2. **Input Validation**
-   - Sanitizes all user inputs before processing
-   - Implements proper error handling for invalid inputs
-
-3. **Resource Limits**
-   - Controls computational resource usage to prevent server overload
-   - Implements timeouts for long-running operations
-
-## **Installation**
+## **Quick Start**
 
 ### **Prerequisites**
-- Python 3.9 or newer
+- Python 3.10 or newer
 - CUDA compatible GPU (optional but recommended for faster training)
+- Google Cloud SDK (for deployment)
 
-### **Setup**
+### **Local Setup**
+
 1. **Clone the repository**:
    ```bash
    git clone git@github.com:vasudevgupta31/oam_iitk.git
-   cd hgm
+   cd oam_iitk
    ```
 
-2. **Create and activate a virtual environment using conda** (recommended):
+2. **Create and activate environment**:
    ```bash
    conda env create -f environment.yml
    conda activate oam_hgm
    ```
    
-   Alternatively, you can use pip with the requirements.txt file:
+   Or using pip:
    ```bash
    pip install -r requirements.txt
    ```
 
 3. **Download pretrained model** (optional):
-   - Download the pretrained model from [this link](https://drive.google.com/file/d/1hyMgwQnU9V7u5cKER9dSS_0pwJneWluj/view?usp=drive_link)
-   - Place the downloaded .h5 file in the `/pretrained` directory
+   - Download from [this link](https://drive.google.com/file/d/1hyMgwQnU9V7u5cKER9dSS_0pwJneWluj/view?usp=drive_link)
+   - Place in `/pretrained` directory
+
+4. **Run the application**:
+   ```bash
+   streamlit run app.py
+   ```
+   Access at `http://localhost:8501`
+
+---
+
+## **Project Structure**
+
+```
+oam_iitk/
+├── configs/              # Configuration files for model and pipeline settings
+├── input_data/           # Raw input files for training
+├── output_data/          # Generated molecules per experiment
+├── pretrained/           # Pretrained model files (.h5)
+├── funcs/                # Utility functions for data processing
+├── processes/            # Process abstractions for pipeline routines
+├── memory/               # Generated interim files, models per experiment
+├── resources/            # UI resources and static files
+├── app.py                # Streamlit application entry point
+├── app_link.py           # Connects Streamlit app with backend pipeline
+├── main.py               # CLI entry point for pipeline execution
+├── bpp/                  # Bioactivity prediction pipeline module
+│   ├── models/           # Trained ML models for property prediction
+│   ├── dataset_config.py # Configuration for prediction datasets
+│   ├── feature_engineering.py # Molecular feature extraction
+│   ├── predict.py        # Property prediction functions
+│   ├── train_models.py   # ML model training scripts
+│   ├── training_data/    # Training datasets
+│   └── transformers.py   # Data transformation utilities
+├── deploy_now.sh         # Quick deployment script
+└── README.md             # This file
+```
+
+---
+
+## **Features**
+
+### **1. Molecular Generation**
+- **Hierarchical Generative Model** using LSTM/GRU layers
+- **Beam Search** for targeted molecule generation
+- **Temperature-controlled Sampling** for diversity
+- **SMILES validation** and canonicalization
+
+### **2. Bioactivity Prediction**
+- Predict EC50 values for GLP-1R, GCGR, and GIP receptors
+- Binding affinity (Kd) prediction
+- Ensemble ML models with Morgan fingerprints
+- Target transformation for skewed distributions
+
+### **3. Boltz Protein-Ligand Binding Analysis**
+- Analyze protein-ligand binding affinity
+- Confidence scores (PTM, iPTM, pLDDT)
+- Affinity scores (IC50, Kd, ΔG)
+- **Interactive 3D structure visualization** with NGL Viewer
+- Multiple representation modes (cartoon, ball & stick, surface)
+
+### **4. Retro Synthesis Generator**
+- Generate synthesis pathways for molecules
+- Configurable beam size for pathway diversity
+- Integration with external retro synthesis API
+
+### **5. Experiment Management**
+- Create and configure experiments via web UI
+- Track experiment status and progress
+- Browse and analyze completed experiments
+- Download results in CSV format
+- Email notifications for completion
+
+### **6. Interactive Visualizations**
+- Training history charts
+- Molecular structure visualization (2D)
+- 3D protein-ligand structure viewer
+- Tanimoto similarity heatmaps
+- Property distribution plots
+
+---
 
 ## **Usage**
 
 ### **Command Line Interface**
-You can run the pipeline directly from the command line for batch processing:
 
-1. Modify `config.ini` to set your parameters:
-   - Input file location (should be placed within `input_data/`)
-   - Pretrained model name
-   - Training hyperparameters
-   - Other processing options
-
+1. Modify `config.ini` with your parameters
 2. Run the pipeline:
    ```bash
    conda activate oam_hgm
    python main.py
    ```
+3. Results available in `/output_data/{experiment_name}`
 
-3. Results will be available in `/output_data` under your experiment name
+### **Web Application**
 
-### **Streamlit Web Application**
+#### **Create Experiment**
+1. **Setup Tab**: Upload SMILES files, name experiment
+2. **Processing Tab**: Configure train/validation split, sequence lengths
+3. **Model Tab**: Select pretrained model, adjust architecture
+4. **Beam Search Tab**: Configure beam width
+5. **Sampling Tab**: Set temperature and sample count
+6. **Communication Tab**: Configure email notifications
+7. **Pipeline Execution Tab**: Review and run
 
-The Streamlit application provides an intuitive GUI for configuring, running, and monitoring experiments.
-
-1. **Start the Streamlit app**:
-   ```bash
-   conda activate oam_hgm
-   streamlit run app.py
-
-   If want to tunnel for other people over web <!-- ngrok http http://localhost:8501 -->
-   or if you have cloudflare > cloudflared tunnel --url http://localhost:8501
-   ```
-
-2. **Access the web interface** in your browser at `http://localhost:8501`
-
-### **Web Application Features**
-
-The Streamlit application is divided into several key sections:
-
-#### **1. Navigation**
-- **Create Experiment**: Configure and launch new experiments
-- **Browse Experiments**: Review and analyze completed experiments
-
-#### **2. Create Experiment Tab**
-This section is organized into multiple tabs for step-by-step configuration:
-
-##### **Setup Tab**
-- Upload SMILES input files
-- Name your experiment
-- Configure override options
-
-##### **Processing Tab**
-- Configure train/validation split ratio
-- Set minimum and maximum sequence lengths
-- Adjust data augmentation factors
-
-##### **Model Tab**
-- Select pretrained model
-- Configure neural network architecture
-- Adjust training parameters (epochs, learning rate, batch size)
-- Fine-tune dropout rates and trainable layers
-
-##### **Input Tab**
-- View and select from available input files
-- Verify current input settings
-
-##### **Beam Search Tab**
-- Configure beam width for molecular generation
-- Set the starting epoch for beam search
-
-##### **Sampling Tab**
-- Adjust temperature for molecule sampling
-- Set number of samples to generate
-- Configure sampling from last N epochs
-- Enable multiprocessing for faster sampling
-
-##### **Communication Tab**
-- Configure email notifications for experiment completion
-
-##### **Pipeline Execution Tab**
-- Review configuration summary
-- Save configuration settings
-- Run the pipeline
-
-#### **3. Browse Experiments Tab**
-- View all completed and in-progress experiments
+#### **Browse Experiments**
+- View all experiments and their status
 - Analyze training history with interactive charts
-- Explore generated molecules with 2D structure visualization
-- Download experiment results in CSV format
-- View molecular properties and export molecule data
+- Explore generated molecules with 2D/3D visualization
+- **Retro Synthesis**: Generate synthesis pathways
+- **Boltz Analysis**: Analyze protein-ligand binding
+- Download results and molecular properties
+
+---
+
+## **API Integrations**
+
+### **Retro Synthesis API**
+- **Endpoint**: `http://136.117.112.142:8000/predict`
+- **Method**: POST
+- **Payload**: `{"smiles": "...", "beam_size": 3}`
+
+### **Boltz Binding API**
+- **Endpoint**: `http://35.188.254.55:8001/protein-ligand-binding-sync`
+- **Method**: POST
+- **Payload**: `{"ligand_smiles": "..."}`
+- **Timeout**: 15 minutes (900 seconds)
+
+### **3D Structure Files**
+- **Download URL**: `http://35.188.254.55:8001/jobs/{job_id}/download/{file_path}`
+- **Format**: CIF files
+- **Viewer**: NGL Viewer (embedded)
+
+---
+
+## **Backend Architecture**
+
+### **Core Components**
+
+1. **Hierarchical Generative Model (HGM)**
+   - Multi-level deep learning architecture for SMILES generation
+   - LSTM/GRU layers with attention mechanisms
+   - Teacher forcing with categorical cross-entropy loss
+   - Sampling and beam search for generation
+
+2. **Data Processing Pipeline**
+   - SMILES canonicalization and validation
+   - Data augmentation with multiple valid SMILES
+   - Tokenization and vocabulary building
+   - Train/validation splits with sequence constraints
+
+3. **Bioactivity Prediction Pipeline (BPP)**
+   - Ensemble ML models for property prediction
+   - Morgan fingerprints and molecular descriptors
+   - Target transformation for distribution handling
+
+4. **Experiment Management System**
+   - Isolated experiment environments
+   - Status tracking through JSON files
+   - Configuration inheritance
+   - Resumability for interrupted experiments
+
+### **Process Flow**
+
+1. **Configuration Initialization** → Parse inputs, create experiment directory
+2. **Data Preprocessing** → Filter, augment, tokenize SMILES data
+3. **Model Training** → Initialize architecture, train with callbacks
+4. **Molecule Generation** → Beam search and sampling from checkpoints
+5. **Post-Processing** → Property prediction, filtering, visualization
+
+### **Performance Optimizations**
+
+- **Multiprocessing** for parallel sampling
+- **GPU Acceleration** for training and inference
+- **Memory-mapped files** for large datasets
+- **Caching** for fingerprints and descriptors
+
+---
 
 ## **Configuration Options**
 
-### **Key Configuration Parameters**
-
-#### **Processing**
+### **Processing**
 - `split`: Train/validation split ratio (0.5-1.0)
 - `min_len`: Minimum SMILES sequence length
 - `max_len`: Maximum SMILES sequence length
 - `augmentation`: Data augmentation factor
 
-#### **Model**
+### **Model**
 - `pretrained_model`: Path to pretrained .h5 file
 - `epochs`: Number of training epochs
 - `lr`: Learning rate
@@ -271,69 +237,114 @@ This section is organized into multiple tabs for step-by-step configuration:
 - `dropouts`: Dropout rates for regularization
 - `batch_size`: Training batch size
 
-#### **Beam Search**
+### **Beam Search**
 - `width`: Beam width for molecule generation
 - `from_epoch`: Starting epoch for beam search
 
-#### **Sampling**
+### **Sampling**
 - `temp`: Temperature for sampling (higher = more diversity)
 - `n_sample`: Number of molecules to sample
 - `last_n_epochs`: Number of recent epochs to sample from
 
-## **Pipeline Steps**
+---
 
-The HGM pipeline consists of several sequential processes:
+## **Security Features**
 
-1. **Data Processing**: Prepares and augments SMILES data
-2. **Model Training**: Trains a neural network on processed data
-3. **Beam Search**: Performs beam search for molecular generation
-4. **Sampling**: Generates molecular structures through probabilistic sampling
-5. **Novo Analysis**: Evaluates and filters generated molecules
+1. **Authentication System**
+   - Password-protected access
+   - Secure credential storage
+
+2. **Input Validation**
+   - Sanitized user inputs
+   - Error handling for invalid inputs
+
+3. **Resource Limits**
+   - Controlled computational resource usage
+   - Timeouts for long-running operations
+
+---
 
 ## **Email Notifications**
 
-The system supports email notifications for experiment completion. To enable this feature:
+To enable email notifications:
 
-1. Create a `.env` file in the project root with:
+1. Create `.env` file in project root:
    ```
    EMAIL_USER=your_email@gmail.com
    EMAIL_PASSWORD=your_app_password
    ```
-2. Enter your email address in the Communication tab of the Streamlit app
-3. You'll receive a notification when your experiment completes
+2. Enter email in Communication tab
+3. Receive notifications on experiment completion
 
-## **Logging & Debugging**
+---
 
-- Detailed logs are stored in the `logs/` directory
-- The Streamlit app displays real-time progress during experiment execution
-- Check the `memory/{experiment_name}/status.json` file for current status
+## **Deployment**
+
+For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
+
+**Quick Deploy to GCP:**
+```bash
+./deploy_now.sh
+```
+
+**Server Information:**
+- **Server**: rsgpt-server-cpu (136.116.43.177:8501)
+- **Zone**: us-central1-a
+- **Project**: ml-project-477222
+
+---
+
+## **Troubleshooting**
+
+### **Common Issues**
+
+- **Missing pretrained model**: Download to `/pretrained` directory
+- **CUDA errors**: Check GPU drivers and CUDA installation
+- **Memory errors**: Reduce batch size or model complexity
+- **Invalid SMILES**: Ensure input file contains valid SMILES strings
+- **Indentation errors**: Check Python version compatibility (3.10 recommended)
+
+### **Logs & Debugging**
+
+- Detailed logs in `logs/` directory
+- Real-time progress in Streamlit app
+- Check `memory/{experiment_name}/status.json` for status
+
+---
 
 ## **Advanced Usage**
 
 ### **Custom Token Vocabulary**
-To modify the token vocabulary:
-1. Edit `configs/fixed_params.py`
-2. Update the `INDICES_TOKEN` and `TOKEN_INDICES` dictionaries
+Edit `configs/fixed_params.py` and update `INDICES_TOKEN` and `TOKEN_INDICES` dictionaries.
 
 ### **Custom Neural Network Architecture**
-Advanced users can modify the neural network architecture by:
-1. Editing `funcs/helpers_training.py`
-2. Adjusting the `SeqModel` class implementation
+Modify `funcs/helpers_training.py` and adjust the `SeqModel` class.
 
-## **Troubleshooting**
-
-- **Missing pretrained model**: Ensure you've downloaded the pretrained model file to the `/pretrained` directory
-- **CUDA errors**: Check your GPU drivers and CUDA installation
-- **Memory errors**: Reduce batch size or model complexity for larger datasets
-- **Invalid SMILES**: Ensure your input file contains valid SMILES strings
+---
 
 ## **Contributing**
-Contributions are welcome! Please feel free to submit a Pull Request.
+
+Contributions are welcome! Please submit a Pull Request.
+
+---
 
 ## **License**
-This project is licensed under the MIT License - see the LICENSE file for details.
+
+This project is licensed under the MIT License.
+
+---
 
 ## **Contact**
-For queries or support, reach out to:
-- `akshaykakar@gmail.com`
-- `guptavasudelhi@gmail.com`
+
+For queries or support:
+- neeraj3edu@gmail.com
+- akshaykakar@gmail.com
+- guptavasudelhi@gmail.com
+
+---
+
+## **Acknowledgments**
+
+- IIT Kanpur for project support
+- Google Cloud Platform for hosting infrastructure
+- RDKit and NGL Viewer communities
