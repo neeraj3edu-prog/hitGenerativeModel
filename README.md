@@ -26,8 +26,8 @@ The repository includes:
 
 1. **Clone the repository**:
    ```bash
-   git clone git@github.com:vasudevgupta31/oam_iitk.git
-   cd oam_iitk
+   git clone https://github.com/neeraj3edu-prog/hitGenerativeModel.git
+   cd hitGenerativeModel
    ```
 
 2. **Create and activate environment**:
