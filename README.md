@@ -160,20 +160,20 @@ oam_iitk/
 ## **API Integrations**
 
 ### **Retro Synthesis API**
-- **Endpoint**: `http://136.117.112.142:8000/predict`
 - **Method**: POST
 - **Payload**: `{"smiles": "...", "beam_size": 3}`
+- Integration with external retro synthesis service
 
 ### **Boltz Binding API**
-- **Endpoint**: `http://35.188.254.55:8001/protein-ligand-binding-sync`
 - **Method**: POST
 - **Payload**: `{"ligand_smiles": "..."}`
 - **Timeout**: 15 minutes (900 seconds)
+- Protein-ligand binding affinity prediction
 
 ### **3D Structure Files**
-- **Download URL**: `http://35.188.254.55:8001/jobs/{job_id}/download/{file_path}`
 - **Format**: CIF files
 - **Viewer**: NGL Viewer (embedded)
+- Interactive 3D molecular structure visualization
 
 ---
 
@@ -288,9 +288,8 @@ For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE
 ```
 
 **Server Information:**
-- **Server**: rsgpt-server-cpu (136.116.43.177:8501)
-- **Zone**: us-central1-a
-- **Project**: ml-project-477222
+- Deployed on Google Cloud Platform
+- See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for server setup details
 
 ---
 
