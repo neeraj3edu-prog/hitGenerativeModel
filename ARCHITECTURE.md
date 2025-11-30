@@ -422,8 +422,8 @@ graph TB
     end
     
     subgraph "Monitoring"
-        STATUS[Process Status<br/>ps aux | grep streamlit]
-        PORT[Port Check<br/>netstat -tuln | grep 8501]
+        STATUS[Process Status<br/>ps aux grep streamlit]
+        PORT[Port Check<br/>netstat -tuln grep 8501]
         HEALTH[Health Check<br/>HTTP GET :8501]
     end
     
