@@ -55,7 +55,7 @@ graph TB
     subgraph "External Services"
         RS_SERVICE[Retro Synthesis Service<br/>External API<br/>POST /predict]
         BOLTZ_SERVICE[Boltz Binding Service<br/>External API<br/>POST /protein-ligand-binding-sync]
-        BOLTZ_FILES[CIF File Server<br/>GET /jobs/{id}/download/{path}]
+        BOLTZ_FILES[CIF File Server<br/>GET /jobs/ID/download/PATH]
     end
 
     subgraph "Storage & State"
