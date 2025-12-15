@@ -19,6 +19,7 @@ from datetime import datetime
 import numpy as np
 import requests
 import streamlit.components.v1 as components
+import py3Dmol
 
 from funcs.stauth import check_password
 from funcs.app_funcs import (load_backend_docs,
@@ -64,6 +65,32 @@ st.markdown("<h1 style='margin-top: 0; padding-top: 0; margin-left: 0px; color: 
 
 st.markdown(app_style, unsafe_allow_html=True)
 st.markdown(app_style2, unsafe_allow_html=True)
+
+
+# Helper function for 3D visualization
+def visualize_structure_from_url(download_url: str, width: int = 800, height: int = 600):
+    """Display 3D molecular structure from URL"""
+    try:
+        # Fetch the structure file content
+        response = requests.get(download_url, timeout=30)
+        response.raise_for_status()
+        content = response.text
+        
+        # Determine file format from URL
+        file_format = 'cif' if download_url.endswith('.cif') else 'pdb'
+        
+        # Create py3Dmol view
+        view = py3Dmol.view(width=width, height=height)
+        view.addModel(content, file_format)
+        view.setStyle({'cartoon': {'color': 'spectrum'}})
+        view.setStyle({'hetflag': True}, {'stick': {'colorscheme': 'greenCarbon'}})
+        view.setBackgroundColor('white')
+        view.zoomTo()
+        
+        return view
+    except Exception as e:
+        st.error(f"Error loading structure: {str(e)}")
+        return None
 
 
 # Sidebar for navigation
@@ -1132,7 +1159,7 @@ else:  # Browse Experiments page
                             with st.spinner("Generating retro synthesis pathways..."):
                                 try:
                                     # Make API call
-                                    api_url = "http://136.117.112.142:8000/predict"
+                                    api_url = "http://34.105.122.107:8000/predict"
                                     payload = {
                                         "smiles": selected_smiles,
                                         "beam_size": beam_size
@@ -1207,7 +1234,7 @@ else:  # Browse Experiments page
                             with st.spinner("Analyzing protein-ligand binding... This may take a few moments."):
                                 try:
                                     # Make API call
-                                    boltz_api_url = "http://35.188.254.55:8001/protein-ligand-binding-sync"
+                                    boltz_api_url = "http://35.236.240.79:8001/protein-ligand-binding-sync"
                                     boltz_payload = {
                                         "ligand_smiles": selected_boltz_smiles
                                     }
@@ -1242,52 +1269,113 @@ else:  # Browse Experiments page
                             
                             st.success("✅ Binding analysis completed successfully!")
                             
-                            # Display Summary Section
-                            if "summary" in result:
-                                summary = result["summary"]
+                            # Check if new format (with receptors) or old format
+                            if "results_by_receptor" in result and "summary_by_receptor" in result:
+                                # New format: grouped by receptor
+                                st.markdown(f"### 📊 Results by Receptor (Total Jobs: {result.get('total_jobs', 0)})")
                                 
-                                st.markdown("### 📊 Summary")
-                                
-                                # Create columns for summary metrics
-                                sum_col1, sum_col2, sum_col3 = st.columns(3)
-                                
-                                with sum_col1:
-                                    st.metric(
-                                        "Binding Classification",
-                                        summary.get("binding_classification", "N/A")
-                                    )
-                                    st.metric(
-                                        "Consistency",
-                                        summary.get("consistency", "N/A")
-                                    )
-                                
-                                with sum_col2:
-                                    ic50_data = summary.get("ic50_nM", {})
-                                    st.metric(
-                                        "Mean IC50 (nM)",
-                                        f"{ic50_data.get('mean', 0):.2f}",
-                                        help="Lower values indicate stronger binding"
-                                    )
-                                    st.metric(
-                                        "IC50 Std Dev",
-                                        f"{ic50_data.get('std', 0):.2f}"
-                                    )
-                                
-                                with sum_col3:
-                                    conf_data = summary.get("confidence_score", {})
-                                    st.metric(
-                                        "Mean Confidence",
-                                        f"{conf_data.get('mean', 0):.4f}",
-                                        help="Higher values indicate more reliable predictions"
-                                    )
-                                    st.metric(
-                                        "CV%",
-                                        f"{ic50_data.get('cv_percent', 0):.2f}%",
-                                        help="Coefficient of variation - lower is better"
-                                    )
+                                # Display summary for each receptor
+                                for receptor_name, receptor_summary in result.get("summary_by_receptor", {}).items():
+                                    with st.expander(f"**{receptor_name}** - {receptor_summary.get('binding_classification', 'N/A')}", expanded=True):
+                                        
+                                        # Summary metrics in columns
+                                        col1, col2, col3, col4 = st.columns(4)
+                                        
+                                        with col1:
+                                            st.metric(
+                                                "IC50 (nM)",
+                                                f"{receptor_summary.get('ic50_nM', 0):.2f}",
+                                                help="Lower values indicate stronger binding"
+                                            )
+                                        
+                                        with col2:
+                                            st.metric(
+                                                "Kd (nM)",
+                                                f"{receptor_summary.get('kd_nM', 0):.2f}",
+                                                help="Dissociation constant"
+                                            )
+                                        
+                                        with col3:
+                                            st.metric(
+                                                "Confidence",
+                                                f"{receptor_summary.get('confidence_score', 0):.4f}",
+                                                help="Higher values indicate more reliable predictions"
+                                            )
+                                        
+                                        with col4:
+                                            st.metric(
+                                                "ΔG (kcal/mol)",
+                                                f"{receptor_summary.get('delta_g_kcal', 0):.2f}",
+                                                help="Binding free energy"
+                                            )
+                                        
+                                        # Get job results for this receptor
+                                        receptor_results = result.get("results_by_receptor", {}).get(receptor_name, [])
+                                        
+                                        for job_result in receptor_results:
+                                            st.markdown(f"#### 🔬 {job_result.get('job_name', 'Job')} - {job_result.get('status', 'unknown').upper()}")
+                                            
+                                            # Confidence Scores
+                                            st.markdown("**Confidence Scores**")
+                                            conf_scores = job_result.get("confidence_scores", {})
+                                            conf_df = pd.DataFrame([{
+                                                "Confidence": f"{conf_scores.get('confidence_score', 0):.4f}",
+                                                "PTM": f"{conf_scores.get('ptm', 0):.4f}",
+                                                "iPTM": f"{conf_scores.get('iptm', 0):.4f}",
+                                                "pLDDT": f"{conf_scores.get('plddt', 0):.4f}"
+                                            }])
+                                            st.dataframe(conf_df, use_container_width=True, hide_index=True)
+                                            
+                                            # Affinity Scores
+                                            st.markdown("**Affinity Scores**")
+                                            aff_scores = job_result.get("affinity_scores", {})
+                                            aff_df = pd.DataFrame([{
+                                                "IC50 (nM)": f"{aff_scores.get('ic50_nM', 0):.2f}",
+                                                "pIC50": f"{aff_scores.get('pic50', 0):.4f}",
+                                                "Kd (nM)": f"{aff_scores.get('kd_nM', 0):.2f}",
+                                                "pKd": f"{aff_scores.get('pkd', 0):.4f}",
+                                                "ΔG (kcal/mol)": f"{aff_scores.get('delta_g_kcal', 0):.4f}",
+                                                "Boltz Affinity": f"{aff_scores.get('boltz_affinity_value', 0):.4f}"
+                                            }])
+                                            st.dataframe(aff_df, use_container_width=True, hide_index=True)
+                                            
+                                            # Structure Files with 3D Viewer
+                                            if "structure_files" in job_result and job_result["structure_files"]:
+                                                st.markdown("**3D Structure Visualization**")
+                                                for file_idx, file_path in enumerate(job_result["structure_files"]):
+                                                    job_id = job_result.get('job_id', '')
+                                                    download_url = f"http://35.236.240.79:8001/jobs/{job_id}/download/{file_path}"
+                                                    
+                                                    # Display 3D structure using py3Dmol
+                                                    with st.spinner("Loading 3D structure..."):
+                                                        viewer = visualize_structure_from_url(download_url, width=800, height=600)
+                                                        if viewer:
+                                                            st.components.v1.html(viewer._make_html(), height=620, scrolling=False)
+                                                            st.markdown(f"[📥 Download CIF File]({download_url})")
+                                                
+                                                st.info("💡 **Tip:** Use your mouse to rotate (left-click drag), zoom (scroll), and pan (right-click drag) the structure.")
                             
-                            # Display Individual Results
-                            if "results" in result and len(result["results"]) > 0:
+                            # Old format: flat results list
+                            elif "results" in result and len(result["results"]) > 0:
+                                # Display old format summary if available
+                                if "summary" in result:
+                                    summary = result["summary"]
+                                    st.markdown("### 📊 Summary")
+                                    
+                                    sum_col1, sum_col2, sum_col3 = st.columns(3)
+                                    
+                                    with sum_col1:
+                                        st.metric("Binding Classification", summary.get("binding_classification", "N/A"))
+                                        st.metric("Consistency", summary.get("consistency", "N/A"))
+                                    
+                                    with sum_col2:
+                                        st.metric("Mean IC50 (nM)", f"{summary.get('mean_ic50_nM', 0):.2f}")
+                                        st.metric("IC50 Std Dev", f"{summary.get('std_ic50_nM', 0):.2f}")
+                                    
+                                    with sum_col3:
+                                        st.metric("Mean Confidence", f"{summary.get('mean_confidence', 0):.4f}")
+                                        st.metric("CV%", f"{summary.get('cv_ic50', 0) * 100:.2f}%")
+                                
                                 st.markdown("### 🔬 Individual Job Results")
                                 
                                 for idx, job_result in enumerate(result["results"], 1):
@@ -1330,12 +1418,21 @@ else:  # Browse Experiments page
                                             
                                             for file_idx, file_path in enumerate(job_result["structure_files"]):
                                                 job_id = job_result.get('job_id', '')
-                                                download_url = f"http://35.188.254.55:8001/jobs/{job_id}/download/{file_path}"
+                                                download_url = f"http://35.236.240.79:8001/jobs/{job_id}/download/{file_path}"
                                                 
-                                                # Add 3D viewer
+                                                # Display 3D structure using py3Dmol
                                                 st.markdown(f"**Interactive 3D Viewer - Structure {file_idx + 1}**")
-                                                
-                                                # Create 3D viewer using NGL Viewer (web-based)
+                                                with st.spinner("Loading 3D structure..."):
+                                                    viewer = visualize_structure_from_url(download_url, width=800, height=600)
+                                                    if viewer:
+                                                        st.components.v1.html(viewer._make_html(), height=620, scrolling=False)
+                                                        st.markdown(f"[📥 Download CIF File]({download_url})")
+                                                        st.markdown("---")
+                                            
+                                            st.info("💡 **Tip:** Use your mouse to rotate (left-click drag), zoom (scroll), and pan (right-click drag) the structure.")
+                                            
+                                            # Skip old NGL viewer code
+                                            if False:
                                                 viewer_html = f"""
 <!DOCTYPE html>
 <html>

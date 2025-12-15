@@ -78,7 +78,7 @@ echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━
 echo -e "${GREEN}🎉 Deployment Complete!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "\n${BLUE}🌐 Access your application at:${NC}"
-echo -e "   ${YELLOW}http://136.116.43.177:8501${NC}\n"
+echo -e "   ${YELLOW}http://34.68.97.108:8501${NC}\n"
 
 echo -e "${BLUE}📋 Useful commands:${NC}"
 echo -e "   View logs:"
